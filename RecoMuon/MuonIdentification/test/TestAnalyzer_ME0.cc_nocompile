@@ -1,0 +1,401 @@
+#include "FWCore/Framework/interface/Event.h"
+
+#include <FWCore/PluginManager/interface/ModuleDef.h>
+#include <FWCore/Framework/interface/MakerMacros.h>
+#include "FWCore/Framework/interface/EDAnalyzer.h"
+
+#include <DataFormats/Common/interface/Handle.h>
+#include <FWCore/Framework/interface/ESHandle.h>
+#include <FWCore/MessageLogger/interface/MessageLogger.h> 
+
+#include <Geometry/Records/interface/MuonGeometryRecord.h>
+
+#include <DataFormats/GEMRecHit/interface/ME0SegmentCollection.h>
+
+#include <DataFormats/MuonReco/interface/ME0Muon.h>
+#include <DataFormats/MuonReco/interface/ME0MuonCollection.h>
+
+// #include "CLHEP/Matrix/SymMatrix.h"
+// #include "CLHEP/Matrix/Matrix.h"
+// #include "CLHEP/Vector/ThreeVector.h"
+
+#include "DataFormats/GeometryVector/interface/GlobalVector.h"
+#include "DataFormats/GeometryVector/interface/GlobalPoint.h"
+#include "TrackingTools/GeomPropagators/interface/Propagator.h"
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "DataFormats/TrajectorySeed/interface/PropagationDirection.h"
+//#include "DataFormats/BeamSpot/interface/BeamSpot.h"
+
+#include "TLorentzVector.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+
+#include "DataFormats/TrackReco/interface/TrackFwd.h"
+#include "DataFormats/TrackReco/interface/Track.h"
+
+#include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
+//#include "TRandom3.h"
+#include "DataFormats/GeometrySurface/interface/Plane.h"
+#include "TrackPropagation/SteppingHelixPropagator/interface/SteppingHelixPropagator.h"
+#include "TrackPropagation/SteppingHelixPropagator/interface/SteppingHelixStateInfo.h"
+
+#include "DataFormats/Math/interface/deltaR.h"
+//#include "DataFormats/Math/interface/deltaPhi.h"
+//#include <deltaR.h>
+
+
+#include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
+#include "DataFormats/RecoCandidate/interface/RecoChargedCandidateFwd.h"
+
+#include "TMath.h"
+#include "TLorentzVector.h"
+
+#include "TH1.h" 
+#include <TH2.h>
+#include "TFile.h"
+#include <TProfile.h>
+#include "TStyle.h"
+#include <TCanvas.h>
+
+class TestAnalyzer_ME0 : public edm::EDAnalyzer {
+public:
+  explicit TestAnalyzer_ME0(const edm::ParameterSet&);
+  ~TestAnalyzer_ME0();
+
+
+  virtual void analyze(const edm::Event&, const edm::EventSetup&);
+  virtual void endJob();
+  void beginJob();
+
+  //protected:
+  
+  private:
+  TFile* histoFile;
+  TH1F *Candidate_Eta;  TH1F *Mass_h; 
+  TH1F *Segment_Eta;  TH1F *Track_Eta; TH1F *Track_Pt;  TH1F *ME0Muon_Eta; TH1F *ME0Muon_Pt; 
+  TH1F *UnmatchedME0Muon_Eta; TH1F *UnmatchedME0Muon_Pt; 
+  TH1F *TracksPerSegment_h;  TH2F *TracksPerSegment_s;  TProfile *TracksPerSegment_p;
+  TH1F *FakeTracksPerSegment_h;  TH2F *FakeTracksPerSegment_s;  TProfile *FakeTracksPerSegment_p;
+  TH1F *GenMuon_Eta; TH1F *GenMuon_Pt;   TH1F *MatchedME0Muon_Eta; TH1F *MatchedME0Muon_Pt; 
+  TH1F *MuonRecoEff_Eta;  TH1F *MuonRecoEff_Pt;
+  TH1F *MuonAllTracksEff_Eta;  TH1F *MuonAllTracksEff_Pt;
+  TH1F *MuonUnmatchedTracksEff_Eta;  TH1F *MuonUnmatchedTracksEff_Pt;
+
+
+//Removing this
+};
+
+TestAnalyzer_ME0::TestAnalyzer_ME0(const edm::ParameterSet& iConfig) 
+{
+  histoFile = new TFile(iConfig.getParameter<std::string>("HistoFile").c_str(), "recreate");
+}
+
+
+
+void TestAnalyzer_ME0::beginJob()
+{
+  Candidate_Eta = new TH1F("Candidate_Eta"      , "Candidate #eta"   , 40, 2.4, 4.0 );
+
+  Track_Eta = new TH1F("Track_Eta"      , "Track #eta"   , 40, 2.4, 4.0 );
+  Track_Pt = new TH1F("Track_Pt"      , "Muon p_{T}"   , 8,0 , 40 );
+
+  Segment_Eta = new TH1F("Segment_Eta"      , "Segment #eta"   , 40, 2.4, 4.0 );
+
+  ME0Muon_Eta = new TH1F("ME0Muon_Eta"      , "Muon #eta"   , 40, 2.4, 4.0 );
+  ME0Muon_Pt = new TH1F("ME0Muon_Pt"      , "Muon p_{T}"   , 8,0 , 40 );
+
+  GenMuon_Eta = new TH1F("GenMuon_Eta"      , "Muon #eta"   , 40, 2.4, 4.0 );
+  GenMuon_Pt = new TH1F("GenMuon_Pt"      , "Muon p_{T}"   , 8,0 , 40 );
+
+  MatchedME0Muon_Eta = new TH1F("MatchedME0Muon_Eta"      , "Muon #eta"   , 40, 2.4, 4.0 );
+  MatchedME0Muon_Pt = new TH1F("MatchedME0Muon_Pt"      , "Muon p_{T}"   , 8,0 , 40 );
+
+  UnmatchedME0Muon_Eta = new TH1F("UnmatchedME0Muon_Eta"      , "Muon #eta"   , 40, 2.4, 4.0 );
+  UnmatchedME0Muon_Pt = new TH1F("UnmatchedME0Muon_Pt"      , "Muon p_{T}"   , 8,0 , 40 );
+
+  Mass_h = new TH1F("Mass_h"      , "Mass"   , 100, 0., 200 );
+
+  MuonRecoEff_Eta = new TH1F("MuonRecoEff_Eta"      , "Fraction of gen muons matched to ME0Muons"   ,40, 2.4, 4.0  );
+  MuonRecoEff_Pt = new TH1F("MuonRecoEff_Pt"      , "Fraction of gen muons matched to ME0Muons"   ,8, 0,40  );
+
+  MuonAllTracksEff_Eta = new TH1F("MuonAllTracksEff_Eta"      , "All ME0Muons over all tracks"   ,40, 2.4, 4.0  );
+  MuonAllTracksEff_Pt = new TH1F("MuonAllTracksEff_Pt"      , "All ME0Muons over all tracks"   ,8, 0,40  );
+
+  MuonUnmatchedTracksEff_Eta = new TH1F("MuonUnmatchedTracksEff_Eta"      , "Unmatched ME0Muons over all ME0Muons"   ,40, 2.4, 4.0  );
+  MuonUnmatchedTracksEff_Pt = new TH1F("MuonUnmatchedTracksEff_Pt"      , "Unmatched ME0Muons over all ME0Muons"   ,8, 0,40  );
+
+  TracksPerSegment_h = new TH1F("TracksPerSegment_h", "Number of tracks", 5,0.,5.);
+  TracksPerSegment_s = new TH2F("TracksPerSegment_s" , "Tracks per segment vs |#eta|", 40, 2.4, 4.0, 5,0.,5.);
+  TracksPerSegment_p = new TProfile("TracksPerSegment_p" , "Tracks per segment vs |#eta|", 40, 2.4, 4.0, 0.,5.);
+
+  FakeTracksPerSegment_h = new TH1F("FakeTracksPerSegment_h", "Number of fake tracks", 5,0.,5.);
+  FakeTracksPerSegment_s = new TH2F("FakeTracksPerSegment_s" , "Fake tracks per segment", 40, 2.4, 4.0, 5,0.,5.);
+  FakeTracksPerSegment_p = new TProfile("FakeTracksPerSegment_p" , "Fake tracks per segment", 40, 2.4, 4.0, 0.,5.);
+  
+}
+
+
+TestAnalyzer_ME0::~TestAnalyzer_ME0(){}
+
+void
+TestAnalyzer_ME0::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
+
+{
+
+  using namespace edm;
+
+  //run_ = (int)iEvent.id().run();
+  //event_ = (int)iEvent.id().event();
+
+
+    //David's functionality
+    
+
+  using namespace reco;
+
+  // Handle <ME0MuonCollection > OurMuons;
+  // iEvent.getByLabel <ME0MuonCollection> ("me0SegmentMatcher", OurMuons);
+
+  Handle <std::vector<RecoChargedCandidate> > OurCandidates;
+  iEvent.getByLabel <std::vector<RecoChargedCandidate> > ("me0MuonConverter", OurCandidates);
+
+  Handle<std::vector<ME0SegmentCollection> > OurSegments;
+  iEvent.getByLabel("me0Segments", OurSegments);
+
+  Handle<GenParticleCollection> genParticles;
+  iEvent.getByLabel<GenParticleCollection>("genParticles", genParticles);
+
+  Handle <TrackCollection > generalTracks;
+  iEvent.getByLabel <TrackCollection> ("generalTracks", generalTracks);
+
+  Handle <std::vector<ME0Muon> > OurMuons;
+  iEvent.getByLabel <std::vector<ME0Muon> > ("me0SegmentMatcher", OurMuons);
+
+
+  //=====Finding ME0Muons that match gen muons, plotting the closest of those
+  //    -----First, make a vector of bools for each ME0Muon
+
+  std::vector<bool> IsMatched;
+  for (std::vector<ME0Muon>::const_iterator thisMuon = OurMuons->begin();
+       thisMuon != OurMuons->end(); ++thisMuon){
+    IsMatched.push_back(false);
+  }
+  //   -----Now, loop over each gen muon to compare it to each ME0Muon
+  //   -----For each gen muon, take the closest ME0Muon that is a match within delR 0.15
+  //   -----Each time a match on an ME0Muon is made, change the IsMatched bool corresponding to it to true
+  //   -----Also, each time a match on an ME0Muon is made, we plot the pt and eta of the gen muon it was matched to
+  unsigned int gensize=genParticles->size();
+  for(unsigned int i=0; i<gensize; ++i) {
+    const reco::GenParticle& CurrentParticle=(*genParticles)[i];
+    if ( (CurrentParticle.status()==1) && ( (CurrentParticle.pdgId()==13)  || (CurrentParticle.pdgId()==-13) ) ){  
+
+      GenMuon_Eta->Fill(CurrentParticle.eta());
+      if ( ((CurrentParticle.eta()) > 2.4) && ((CurrentParticle.eta()) < 3.2) ) GenMuon_Pt->Fill(CurrentParticle.pt());
+
+      double LowestDelR = 9999;
+      double thisDelR = 9999;
+      int MatchedID = -1;
+      int ME0MuonID = 0;
+
+      for (std::vector<ME0Muon>::const_iterator thisMuon = OurMuons->begin();
+	   thisMuon != OurMuons->end(); ++thisMuon){
+	TrackRef tkRef = thisMuon->innerTrack();
+	
+	thisDelR = reco::deltaR(CurrentParticle,*tkRef);
+	if (thisDelR < 0.15){
+	  if (thisDelR < LowestDelR){
+	    LowestDelR = thisDelR;
+	    MatchedID = ME0MuonID;
+	  }
+	}
+	ME0MuonID++;
+      }
+      if (MatchedID != -1){
+	IsMatched[MatchedID] = true;
+	MatchedME0Muon_Eta->Fill(CurrentParticle.eta());
+	if ( ((CurrentParticle.eta()) > 2.4) && ((CurrentParticle.eta()) < 3.2) ) MatchedME0Muon_Pt->Fill(CurrentParticle.pt());
+      }
+    }
+  }
+  //   -----Finally, we loop over all the ME0Muons in the event
+  //   -----Before, we plotted the gen muon pt and eta for the efficiency plot of matches
+  //   -----Now, each time a match failed, we plot the ME0Muon pt and eta
+  int ME0MuonID = 0;
+  for (std::vector<ME0Muon>::const_iterator thisMuon = OurMuons->begin();
+       thisMuon != OurMuons->end(); ++thisMuon){
+    if (!IsMatched[ME0MuonID]){
+      TrackRef tkRef = thisMuon->innerTrack();
+      UnmatchedME0Muon_Eta->Fill(tkRef->eta());
+      if ( (TMath::Abs(tkRef->eta()) > 2.4) && (TMath::Abs(tkRef->eta()) < 4.0) ) UnmatchedME0Muon_Pt->Fill(tkRef->pt());
+    }
+      ME0MuonID++;
+  }
+  
+
+
+  for (auto thisSegment = OurSegments->begin();
+       thisSegment != OurSegments->end();++thisSegment){
+    LocalVector TempVect(thisSegment->localDirection().x(),thisSegment->localDirection().y(),thisSegment->localDirection().z());
+    Segment_Eta->Fill(TempVect.eta());
+  }
+
+  
+  for (std::vector<Track>::const_iterator thisTrack = generalTracks->begin();
+       thisTrack != generalTracks->end();++thisTrack){
+    Track_Eta->Fill(thisTrack->eta());
+    if ( (TMath::Abs(thisTrack->eta()) > 2.4) && (TMath::Abs(thisTrack->eta()) < 4.0) ) Track_Pt->Fill(thisTrack->pt());
+  }
+
+
+  std::vector<Double_t> SegmentEta;
+  std::vector<const ME0Segment*> Ids;
+  std::vector<const ME0Segment*> Ids_NonGenMuons;
+  std::vector<const ME0Segment*> UniqueIdList;
+  int TrackID=0;
+
+  for (std::vector<ME0Muon>::const_iterator thisMuon = OurMuons->begin();
+       thisMuon != OurMuons->end(); ++thisMuon,++TrackID){
+    TrackRef tkRef = thisMuon->innerTrack();
+    auto segRef = thisMuon->me0segment();
+    const ME0Segment* SegId = segRef.get();
+
+    bool IsNew = true;
+    for (unsigned int i =0; i < Ids.size(); i++){
+      if (SegId == Ids[i]) IsNew=false;
+    }
+
+    if (IsNew) {
+      UniqueIdList.push_back(SegId);
+      LocalVector TempVect(segRef.localDirection().x(),segRef.localDirection().y(),segRef.localDirection().z());
+      SegmentEta.push_back(TempVect.eta());
+    }
+    Ids.push_back(SegId);
+    if (!IsMatched[TrackID]) Ids_NonGenMuons.push_back(SegId);
+
+    ME0Muon_Eta->Fill(tkRef->eta());
+    if ( (TMath::Abs(tkRef->eta()) > 2.4) && (TMath::Abs(tkRef->eta()) < 4.0) ) ME0Muon_Pt->Fill(tkRef->pt());
+  }
+  
+  for (unsigned int i = 0; i < UniqueIdList.size(); i++){
+    int Num_Total=0, Num_Fake = 0;
+    for (unsigned int j = 0; j < Ids.size(); j++){
+      if (Ids[j] == UniqueIdList[i]) Num_Total++;
+    }
+
+    for (unsigned int j = 0; j < Ids_NonGenMuons.size(); j++){
+      if (Ids_NonGenMuons[j] == UniqueIdList[i]) Num_Fake++;
+    }
+
+    TracksPerSegment_h->Fill((double)Num_Total);
+    TracksPerSegment_s->Fill(SegmentEta[i], (double)Num_Total);
+    TracksPerSegment_p->Fill(SegmentEta[i], (double)Num_Total);
+
+    FakeTracksPerSegment_h->Fill((double)Num_Fake);
+    FakeTracksPerSegment_s->Fill(SegmentEta[i], (double)Num_Fake);
+    FakeTracksPerSegment_p->Fill(SegmentEta[i], (double)Num_Fake);
+
+  }
+  
+
+  //std::cout<<recosize<<std::endl;
+  for (std::vector<RecoChargedCandidate>::const_iterator thisCandidate = OurCandidates->begin();
+       thisCandidate != OurCandidates->end(); ++thisCandidate){
+    TLorentzVector CandidateVector;
+    CandidateVector.SetPtEtaPhiM(thisCandidate->pt(),thisCandidate->eta(),thisCandidate->phi(),0);
+    //std::cout<<"On a muon"<<std::endl;
+    //std::cout<<thisCandidate->eta()<<std::endl;
+    Candidate_Eta->Fill(thisCandidate->eta());
+  }
+
+  if (OurCandidates->size() == 2){
+    TLorentzVector CandidateVector1,CandidateVector2;
+    CandidateVector1.SetPtEtaPhiM((*OurCandidates)[0].pt(),(*OurCandidates)[0].eta(),(*OurCandidates)[0].phi(),0);
+    CandidateVector2.SetPtEtaPhiM((*OurCandidates)[1].pt(),(*OurCandidates)[1].eta(),(*OurCandidates)[1].phi(),0);
+    Double_t Mass = (CandidateVector1+CandidateVector2).M();
+    Mass_h->Fill(Mass);
+  }
+  
+  
+}
+
+void TestAnalyzer_ME0::endJob() 
+{
+  histoFile->cd();
+  TCanvas *c1 = new TCanvas("c1", "canvas" );
+
+  gStyle->SetOptStat(0);
+  gStyle->SetOptTitle(1);
+     
+  Candidate_Eta->Write();   Candidate_Eta->Draw();  c1->Print("OutputAnalyzerPngs/Candidate_Eta.png");
+  Track_Eta->Write();   Track_Eta->Draw();  c1->Print("OutputAnalyzerPngs/Track_Eta.png");
+  Track_Pt->Write();   Track_Pt->Draw();  c1->Print("OutputAnalyzerPngs/Track_Pt.png");
+  Segment_Eta->Write();   Segment_Eta->Draw();  c1->Print("OutputAnalyzerPngs/Segment_Eta.png");
+
+  ME0Muon_Eta->Write();   ME0Muon_Eta->Draw();  c1->Print("OutputAnalyzerPngs/ME0Muon_Eta.png");
+  ME0Muon_Pt->Write();   ME0Muon_Pt->Draw();  c1->Print("OutputAnalyzerPngs/ME0Muon_Pt.png");
+
+  GenMuon_Eta->Write();   GenMuon_Eta->Draw();  c1->Print("OutputAnalyzerPngs/GenMuon_Eta.png");
+  GenMuon_Pt->Write();   GenMuon_Pt->Draw();  c1->Print("OutputAnalyzerPngs/GenMuon_Pt.png");
+
+  MatchedME0Muon_Eta->Write();   MatchedME0Muon_Eta->Draw();  c1->Print("OutputAnalyzerPngs/MatchedME0Muon_Eta.png");
+  MatchedME0Muon_Pt->Write();   MatchedME0Muon_Pt->Draw();  c1->Print("OutputAnalyzerPngs/MatchedME0Muon_Pt.png");
+
+  UnmatchedME0Muon_Eta->Write();   UnmatchedME0Muon_Eta->Draw();  c1->Print("OutputAnalyzerPngs/UnmatchedME0Muon_Eta.png");
+  UnmatchedME0Muon_Pt->Write();   UnmatchedME0Muon_Pt->Draw();  c1->Print("OutputAnalyzerPngs/UnmatchedME0Muon_Pt.png");
+
+  Mass_h->Write();   Mass_h->Draw();  c1->Print("OutputAnalyzerPngs/Mass_h.png");
+  TracksPerSegment_s->SetMarkerStyle(1);
+  TracksPerSegment_s->SetMarkerSize(3.0);
+  TracksPerSegment_s->Write();     TracksPerSegment_s->Draw();  c1->Print("OutputAnalyzerPngs/TracksPerSegment_s.png");
+
+  TracksPerSegment_h->Write();     TracksPerSegment_h->Draw();  c1->Print("OutputAnalyzerPngs/TracksPerSegment_h.png");
+
+  TracksPerSegment_p->GetXaxis()->SetTitle("Gen Muon #eta");
+  TracksPerSegment_p->GetYaxis()->SetTitle("Average N_{Tracks} per segment");
+  TracksPerSegment_p->Write();     TracksPerSegment_p->Draw();  c1->Print("OutputAnalyzerPngs/TracksPerSegment_p.png");
+
+  FakeTracksPerSegment_s->SetMarkerStyle(1);
+  FakeTracksPerSegment_s->SetMarkerSize(3.0);
+  FakeTracksPerSegment_s->Write();     FakeTracksPerSegment_s->Draw();  c1->Print("OutputAnalyzerPngs/FakeTracksPerSegment_s.png");
+
+  FakeTracksPerSegment_h->Write();     FakeTracksPerSegment_h->Draw();  c1->Print("OutputAnalyzerPngs/FakeTracksPerSegment_h.png");
+
+  FakeTracksPerSegment_p->GetXaxis()->SetTitle("Gen Muon #eta");
+  FakeTracksPerSegment_p->GetYaxis()->SetTitle("Average N_{Tracks} per segment");
+  FakeTracksPerSegment_p->Write();     FakeTracksPerSegment_p->Draw();  c1->Print("OutputAnalyzerPngs/FakeTracksPerSegment_p.png");
+
+  GenMuon_Eta->Sumw2();  MatchedME0Muon_Eta->Sumw2();
+  GenMuon_Pt->Sumw2();  MatchedME0Muon_Pt->Sumw2();
+
+  Track_Eta->Sumw2();  ME0Muon_Eta->Sumw2();
+  Track_Pt->Sumw2();  ME0Muon_Pt->Sumw2();
+
+  UnmatchedME0Muon_Eta->Sumw2();
+  UnmatchedME0Muon_Pt->Sumw2();
+  
+  MuonRecoEff_Eta->Divide(MatchedME0Muon_Eta, GenMuon_Eta, 1, 1, "B");
+  MuonRecoEff_Eta->GetXaxis()->SetTitle("Gen Muon #eta");
+  MuonRecoEff_Eta->GetYaxis()->SetTitle("Matching Efficiency");
+  MuonRecoEff_Eta->Write();   MuonRecoEff_Eta->Draw();  c1->Print("OutputAnalyzerPngs/MuonRecoEff_Eta.png");
+
+  MuonRecoEff_Pt->Divide(MatchedME0Muon_Pt, GenMuon_Pt, 1, 1, "B");
+  MuonRecoEff_Pt->GetXaxis()->SetTitle("Gen Muon p_{T}");
+  MuonRecoEff_Pt->GetYaxis()->SetTitle("Matching Efficiency");
+  MuonRecoEff_Pt->Write();   MuonRecoEff_Pt->Draw();  c1->Print("OutputAnalyzerPngs/MuonRecoEff_Pt.png");
+
+  MuonAllTracksEff_Eta->Divide(ME0Muon_Eta, Track_Eta, 1, 1, "B");
+  MuonAllTracksEff_Eta->Write();   MuonAllTracksEff_Eta->Draw();  c1->Print("OutputAnalyzerPngs/MuonAllTracksEff_Eta.png");
+
+  MuonAllTracksEff_Pt->Divide(ME0Muon_Pt, Track_Pt, 1, 1, "B");
+  MuonAllTracksEff_Pt->Write();   MuonAllTracksEff_Pt->Draw();  c1->Print("OutputAnalyzerPngs/MuonAllTracksEff_Pt.png");
+
+  // MuonUnmatchedTracksEff_Eta->Divide(UnmatchedME0Muon_Eta, ME0Muon_Eta, 1, 1, "B");
+  // MuonUnmatchedTracksEff_Eta->Write();   Candidate_Eta->Draw();  c1->Print("OutputAnalyzerPngs/Candidate_Eta.png");
+
+  // MuonUnmatchedTracksEff_Pt->Divide(UnmatchedME0Muon_Pt, ME0Muon_Pt, 1, 1, "B");
+  // MuonUnmatchedTracksEff_Pt->Write();   Candidate_Eta->Draw();  c1->Print("OutputAnalyzerPngs/Candidate_Eta.png");
+
+
+  delete histoFile; histoFile = 0;
+}
+
+DEFINE_FWK_MODULE(TestAnalyzer_ME0);

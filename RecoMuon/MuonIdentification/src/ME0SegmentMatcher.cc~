@@ -1,0 +1,995 @@
+/** \file ME0SegmentMatcher.cc
+ *
+ * \author David Nash
+ */
+
+#include <RecoMuon/MuonIdentification/src/ME0SegmentMatcher.h>
+
+#include <FWCore/PluginManager/interface/ModuleDef.h>
+#include <FWCore/Framework/interface/MakerMacros.h>
+
+#include <DataFormats/Common/interface/Handle.h>
+#include <FWCore/MessageLogger/interface/MessageLogger.h> 
+
+#include <DataFormats/MuonReco/interface/RealME0Muon.h>
+
+#include "DataFormats/GeometryVector/interface/GlobalPoint.h"
+
+#include "DataFormats/TrackReco/interface/TrackFwd.h"
+#include "DataFormats/TrackReco/interface/Track.h"
+
+#include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
+
+#include "DataFormats/GeometrySurface/interface/Plane.h"
+#include "TrackPropagation/SteppingHelixPropagator/interface/SteppingHelixPropagator.h"
+#include "TrackPropagation/SteppingHelixPropagator/interface/SteppingHelixStateInfo.h"
+#include "DataFormats/Math/interface/deltaR.h"
+
+
+#include "DataFormats/GeometrySurface/interface/LocalError.h"
+
+
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "TLorentzVector.h"
+
+#include "DataFormats/TrajectoryState/interface/LocalTrajectoryParameters.h"
+#include "TrackingTools/AnalyticalJacobians/interface/JacobianCartesianToLocal.h"
+#include "TrackingTools/AnalyticalJacobians/interface/JacobianLocalToCartesian.h"
+
+
+//For Plots ---------------Remove later....
+
+#include <TLegend.h>
+#include <TH2.h>
+#include <TProfile.h>
+#include <TStyle.h>
+#include <TCanvas.h>
+//---------------------------------------
+
+ME0SegmentMatcher::ME0SegmentMatcher(const edm::ParameterSet& pas) : iev(0){
+	
+  produces<std::vector<reco::RealME0Muon> >();  //May have to later change this to something that makes more sense, OwnVector, RefVector, etc
+
+  //std::cout<<"HELLO"<<std::endl;
+
+}
+
+ME0SegmentMatcher::~ME0SegmentMatcher() {
+
+  std::cout<<"Destructor starting..."<<std::endl;
+  // //For debugging
+  // histoFile->cd();
+  // TCanvas *c1 = new TCanvas("c1", "", 600, 600);
+
+  // gStyle->SetOptStat(0);
+  // gStyle->SetOptTitle(1);
+
+  // recocov_eta_RPhi_p->SetMarkerStyle(21); 
+  // recocov_eta_RPhi_p->SetMarkerSize(1.2); 
+  // recocov_eta_RPhi_p->GetXaxis()->SetTitle("|#eta|");
+  // recocov_eta_RPhi_p->GetXaxis()->SetTitleSize(recocov_eta_RPhi_p->GetXaxis()->GetTitleSize()*0.8); 
+  // recocov_eta_RPhi_p->GetYaxis()->SetTitle("|#sigmar#phi| [cm]");
+  // recocov_eta_RPhi_p->Write();
+  // recocov_eta_RPhi_p->Draw();
+
+  // c1->Print("recocov_eta_RPhi_prof.png");
+
+  // // SigmaX->Draw(); c1->Print("SigmaX.png");
+  // // SigmaY->Draw(); c1->Print("SigmaY.png");
+
+  // recseg_rms_RPhi->SetMarkerStyle(21); 
+  // recseg_rms_RPhi->SetMarkerSize(1.2); 
+  // recseg_rms_RPhi->SetMarkerColor(kBlack); 
+  // recseg_rms_RPhi->SetLineColor(kBlack); 
+
+  // // genrec_rms_RPhi->SetMarkerStyle(22); 
+  // // genrec_rms_RPhi->SetMarkerSize(1.2); 
+  // // genrec_rms_RPhi->SetMarkerColor(kRed); 
+  // // genrec_rms_RPhi->SetLineColor(kRed); 
+
+  // // gensim_rms_RPhi->SetMarkerStyle(20); 
+  // // gensim_rms_RPhi->SetMarkerSize(1.2); 
+  // // gensim_rms_RPhi->SetMarkerColor(kBlue); 
+  // // gensim_rms_RPhi->SetLineColor(kBlue); 
+
+  // reccov_rms_RPhi->SetMarkerStyle(20); 
+  // reccov_rms_RPhi->SetMarkerSize(1.2); 
+  // reccov_rms_RPhi->SetMarkerColor(kGreen); 
+  // reccov_rms_RPhi->SetLineColor(kGreen); 
+
+  // reccov_rms_RPhi->SetMinimum(0.); 
+
+  // reccov_rms_RPhi->Draw("PL"); 
+  // recseg_rms_RPhi->Draw("PLSAME"); 
+  // // genrec_rms_RPhi->Draw("PELSAME"); 
+  // // gensim_rms_RPhi->Draw("PELSAME");
+
+
+
+
+
+
+
+  // //recseg_rms_RPhi->SetMaximum(maxRPhi); 
+  // //recseg_rms_RPhi->SetMaximum(100); 
+  // TLegend *leg0 = new TLegend(0.2, 0.65, 0.60, 0.90); 
+  // leg0->SetBorderSize(0); 
+  // leg0->SetLineWidth(0); 
+  // leg0->SetLineStyle(0); 
+  // leg0->SetFillStyle(0); 
+  // leg0->SetFillColor(0); 
+  // leg0->SetHeader("r coordinate"); 
+  // //leg0->AddEntry(gensim_rms_RPhi, "Multiple scattering",  "lp"); 
+  // //leg0->AddEntry(genrec_rms_RPhi, "Tracker resolution", "lp"); 
+  // leg0->AddEntry(recseg_rms_RPhi, "Total resolution", "lp"); 
+  // leg0->AddEntry(reccov_rms_RPhi, "Reco propagated covariance", "lp"); 
+  // leg0->Draw(); 
+
+  // leg0->SetHeader("r#phi coordinate"); 
+  // leg0->Draw(); 
+  // reccov_rms_RPhi->Write();     
+  // c1->Print("RMS.png");
+  // std::cout<<"Destructor"<<std::endl;
+
+
+  // delete histoFile; histoFile = 0;
+
+
+
+
+  histoFile->cd();
+  TCanvas *c1 = new TCanvas("c1", "", 600, 600);
+
+  gStyle->SetOptStat(0);
+  gStyle->SetOptTitle(1);
+
+  recocov_eta_RPhi_p->SetMarkerStyle(21); 
+  recocov_eta_RPhi_p->SetMarkerSize(1.2); 
+  recocov_eta_RPhi_p->GetXaxis()->SetTitle("|#eta|");
+  recocov_eta_RPhi_p->GetXaxis()->SetTitleSize(recocov_eta_RPhi_p->GetXaxis()->GetTitleSize()*0.8); 
+  recocov_eta_RPhi_p->GetYaxis()->SetTitle("|#sigmar#phi| [cm]");
+
+  recocov_eta_RPhi_p->Draw();
+
+  c1->Print("recocov_eta_RPhi_prof.png");
+
+  // SigmaX->Draw(); c1->Print("SigmaX.png");
+  // SigmaY->Draw(); c1->Print("SigmaY.png");
+
+  recseg_rms_RPhi->SetMarkerStyle(21); 
+  recseg_rms_RPhi->SetMarkerSize(1.2); 
+  recseg_rms_RPhi->SetMarkerColor(kBlack); 
+  recseg_rms_RPhi->SetLineColor(kBlack); 
+
+  gentrk_rms_RPhi->SetMarkerStyle(22); 
+  gentrk_rms_RPhi->SetMarkerSize(1.2); 
+  gentrk_rms_RPhi->SetMarkerColor(kRed); 
+  gentrk_rms_RPhi->SetLineColor(kRed); 
+
+  genseg_rms_RPhi->SetMarkerStyle(20); 
+  genseg_rms_RPhi->SetMarkerSize(1.2); 
+  genseg_rms_RPhi->SetMarkerColor(kBlue); 
+  genseg_rms_RPhi->SetLineColor(kBlue); 
+
+  reccov_rms_RPhi->SetMarkerStyle(20); 
+  reccov_rms_RPhi->SetMarkerSize(1.2); 
+  reccov_rms_RPhi->SetMarkerColor(kGreen); 
+  reccov_rms_RPhi->SetLineColor(kGreen); 
+
+
+  reccov_rms_RPhi->SetMinimum(0.); 
+  //reccov_rms_RPhi->SetMaximum(maxRPhi); 
+  reccov_rms_RPhi->SetMaximum(1.); 
+
+
+
+  //recocov_eta_RPhi->GetXaxis()->SetTitleSize(recocov_eta_RPhi_p->GetXaxis()->GetTitleSize()*0.8); 
+  reccov_rms_RPhi->GetYaxis()->SetTitle("RMS r #phi coordinate [cm]");
+  reccov_rms_RPhi->GetXaxis()->SetTitle("|#eta|");
+
+  reccov_rms_RPhi->Draw("PL"); 
+  recseg_rms_RPhi->Draw("PLSAME"); 
+  genseg_rms_RPhi->Draw("PLSAME"); 
+  gentrk_rms_RPhi->Draw("PLSAME");
+
+
+
+
+  TLegend *leg0 = new TLegend(0.2, 0.65, 0.60, 0.90); 
+  leg0->SetBorderSize(0); 
+  leg0->SetLineWidth(0); 
+  leg0->SetLineStyle(0); 
+  leg0->SetFillStyle(0); 
+  leg0->SetFillColor(0); 
+  leg0->SetHeader("r coordinate"); 
+  leg0->AddEntry(gentrk_rms_RPhi, "Tracker resolution",  "lp"); 
+  leg0->AddEntry(genseg_rms_RPhi, "Segment error", "lp"); 
+  leg0->AddEntry(recseg_rms_RPhi, "Total resolution", "lp"); 
+  leg0->AddEntry(reccov_rms_RPhi, "Reco propagated covariance", "lp"); 
+  leg0->Draw(); 
+
+  leg0->SetHeader("r#phi coordinate"); 
+  leg0->Draw(); 
+
+  reccov_rms_RPhi->Write();      
+  recseg_rms_RPhi->Write(); 
+  genseg_rms_RPhi->Write(); 
+  gentrk_rms_RPhi->Write();
+ 
+
+  c1->Print("RMS.png");
+  c1->Write();
+  std::cout<<"Destructor"<<std::endl;
+
+
+  delete histoFile; histoFile = 0;
+
+
+  // TCanvas *c1 = new TCanvas("c1", "canvas" );
+
+  // gStyle->SetOptStat(0);
+  // gStyle->SetOptTitle(1);
+
+  // DelR->Draw(); c1->Print("DelR.png");
+  // //DelR_Seg->Draw(); c1->Print("DelR_Seg.png");
+
+  // SigmaX->Draw(); c1->Print("SigmaX.png");
+  // SigmaY->Draw(); c1->Print("SigmaY.png");
+
+  // SigmaDXDZ->Draw(); c1->Print("SigmaDXDZ.png");
+  // SigmaDYDZ->Draw(); c1->Print("SigmaDYDZ.png");
+
+
+  // XDiff_h->Draw(); c1->Print("DiffX.png");
+  // YDiff_h->Draw(); c1->Print("DiffY.png");
+
+  // gStyle->SetOptStat(1);
+  // XPull_h->Fit("gaus","","",-1.,1.);
+  // XPull_h->Draw(); c1->Print("PullX.png");
+  // YPull_h->Fit("gaus");
+  // YPull_h->Draw(); c1->Print("PullY.png");
+
+  // SigmaX_p->Draw(); c1->Print("SigmaX_p.png");
+  // SigmaY_p->Draw(); c1->Print("SigmaY_p.png");
+
+  //std::cout<<"endRun"<<std::endl;
+}
+
+void ME0SegmentMatcher::produce(edm::Event& ev, const edm::EventSetup& setup) {
+
+    LogDebug("ME0SegmentMatcher") << "start producing segments for " << ++iev << "th event ";
+
+   
+
+    //Getting the objects we'll need
+
+    
+    using namespace edm;
+    ESHandle<MagneticField> bField;
+    setup.get<IdealMagneticFieldRecord>().get(bField);
+    ESHandle<Propagator> shProp;
+    setup.get<TrackingComponentsRecord>().get("SteppingHelixPropagatorAlong", shProp);
+
+
+    
+    using namespace reco;
+
+    // Handle<std::vector<ME0Segment> > OurSegments;
+    // ev.getByLabel<std::vector<ME0Segment> >("me0SegmentProducer", OurSegments);
+
+    Handle<ME0SegmentCollection> OurSegments;
+    ev.getByLabel("me0Segments","",OurSegments);
+
+
+    // Handle<CSCSegmentCollection> TestSegments;
+    // ev.getByLabel("cscSegments","",TestSegments);
+
+
+    std::auto_ptr<std::vector<RealME0Muon> > oc( new std::vector<RealME0Muon> ); 
+    std::vector<RealME0Muon> TempStore; 
+
+    Handle <TrackCollection > generalTracks;
+    ev.getByLabel <TrackCollection> ("generalTracks", generalTracks);
+
+
+    // ///////////////////////////////////////////////////
+    //  For debugging/plotting==================================
+    Handle<GenParticleCollection> genParticles;
+    ev.getByLabel<GenParticleCollection>("genParticles", genParticles);
+
+    for(unsigned int i=0; i<genParticles->size(); ++i) {
+      const reco::GenParticle& CurrentParticle=(*genParticles)[i];
+      if ( (CurrentParticle.status()==1) && ( (CurrentParticle.pdgId()==13)  || (CurrentParticle.pdgId()==-13) ) ){  
+
+    	// for (std::vector<Track>::const_iterator thisTrack = generalTracks->begin();
+    	//      thisTrack != generalTracks->end(); ++thisTrack){
+    	//   DelR->Fill(reco::deltaR(*thisTrack,CurrentParticle));
+	  
+    	// }
+
+    	//Setup
+    	float zSign  = CurrentParticle.pz()/fabs(CurrentParticle.pz());
+
+    	float zValue = 526.75 * zSign;
+    	Plane *plane = new Plane(Surface::PositionType(0,0,zValue),Surface::RotationType());
+    	TLorentzVector Momentum;
+    	Momentum.SetPtEtaPhiM(CurrentParticle.pt()
+    			      ,CurrentParticle.eta()
+    			      ,CurrentParticle.phi()
+    			      ,CurrentParticle.mass());
+    	GlobalVector p3gen(Momentum.Px(), Momentum.Py(), Momentum.Pz());
+    	GlobalVector r3gen = GlobalVector(CurrentParticle.vertex().x()
+    					  ,CurrentParticle.vertex().y()
+    					  ,CurrentParticle.vertex().z());
+
+    	AlgebraicSymMatrix66 covGen = AlgebraicMatrixID(); 
+    	covGen *= 1e-20; // initialize to sigma=1e-10 .. should get overwhelmed by MULS
+    	AlgebraicSymMatrix66 covFinal;
+    	int chargeGen =  CurrentParticle.charge(); 
+
+    	//Propagation
+    	FreeTrajectoryState initstate = getFTS(p3gen, r3gen, chargeGen, covGen, &*bField);
+	
+    	SteppingHelixStateInfo startstate(initstate);
+    	SteppingHelixStateInfo laststate;
+
+    	const SteppingHelixPropagator* ThisshProp = 
+    	  dynamic_cast<const SteppingHelixPropagator*>(&*shProp);
+
+    	laststate = ThisshProp->propagate(startstate, *plane);
+
+    	FreeTrajectoryState finalstate;
+    	laststate.getFreeState(finalstate);
+	
+    	GlobalVector p3Final, r3Final;
+    	getFromFTS(finalstate, p3Final, r3Final, chargeGen, covFinal);
+    	//std::cout <<"Propagated genmuon position = " << r3Final.x()<<", "<<r3Final.y()<<", "<<r3Final.z()<<std::endl;
+    	//std::cout <<"Propagated genmuon phi = "<<r3Final.phi()<<std::endl;
+
+
+
+	for (auto thisSegment = OurSegments->begin(); thisSegment != OurSegments->end(); 
+	     ++thisSegment){
+
+
+	  //std::cout<<"On Segment "<<SegmentNumber<<std::endl;
+	  ME0DetId id = thisSegment->me0DetId();
+	  //std::cout<<"ME0DetId =  "<<id<<std::endl;
+	  auto roll = me0Geom->etaPartition(id); 
+
+	  if ( zSign * roll->toGlobal(thisSegment->localPosition()).z() < 0 ) continue;
+	  
+	  GlobalPoint thisSegPos = roll->toGlobal(thisSegment->localPosition());
+
+	  //For plotting==========================
+      
+	  float delphi = (thisSegPos.phi()-r3Final.phi()); //Difference between track phi and gen particle phi
+	  //std::cout<<"delphi = "<<delphi<<std::endl;
+
+	  float RPhi = thisSegPos.perp() * delphi;
+	  genseg_eta_RPhi_p->Fill(CurrentParticle.eta(),RPhi);
+
+	  for(int i=1; i<=genseg_eta_RPhi_p->GetNbinsX(); ++i) {
+	    genseg_rms_RPhi->SetBinContent(i, genseg_eta_RPhi_p->GetBinError(i)); 
+	  }
+	}
+
+	for (std::vector<Track>::const_iterator thisTrack = generalTracks->begin();
+	     thisTrack != generalTracks->end(); ++thisTrack){
+	  //Initializing our plane
+	  //std::cout<<"========================On track "<<TrackNumber<<std::endl;
+
+	  //Remove later
+	  if (fabs(thisTrack->eta()) < 1.8) continue;
+	  //if (fabs(thisTrack->pt()) < 0.6) continue;
+
+
+	  float thiszSign  = thisTrack->pz()/fabs(thisTrack->pz());
+	  if (thiszSign *zSign < 0) continue;
+
+	  //float zValue = 560. * zSign;
+	  float zValue = 526.75 * thiszSign;
+	  Plane *plane = new Plane(Surface::PositionType(0,0,zValue),Surface::RotationType());
+	  //Getting the initial variables for propagation
+	  int chargeReco = thisTrack->charge(); 
+	  GlobalVector p3reco, r3reco;
+
+	  p3reco = GlobalVector(thisTrack->outerPx(), thisTrack->outerPy(), thisTrack->outerPz());
+	  r3reco = GlobalVector(thisTrack->outerX(), thisTrack->outerY(), thisTrack->outerZ());
+
+	  AlgebraicSymMatrix66 covReco;
+	  //This is to fill the cov matrix correctly
+	  AlgebraicSymMatrix55 covReco_curv;
+	  covReco_curv = thisTrack->outerStateCovariance();
+	  FreeTrajectoryState initrecostate = getFTS(p3reco, r3reco, chargeReco, covReco_curv, &*bField);
+	  getFromFTS(initrecostate, p3reco, r3reco, chargeReco, covReco);
+
+	  //Now we propagate and get the propagated variables from the propagated state
+	  SteppingHelixStateInfo startrecostate(initrecostate);
+	  SteppingHelixStateInfo lastrecostate;
+
+	  const SteppingHelixPropagator* ThisshProp = 
+	    dynamic_cast<const SteppingHelixPropagator*>(&*shProp);
+	
+	  lastrecostate = ThisshProp->propagate(startrecostate, *plane);
+	
+	  FreeTrajectoryState finalrecostate;
+	  lastrecostate.getFreeState(finalrecostate);
+
+	  AlgebraicSymMatrix66 covFinalReco;
+	  GlobalVector p3FinalReco_glob, r3FinalReco_globv;
+	  getFromFTS(finalrecostate, p3FinalReco_glob, r3FinalReco_globv, chargeReco, covFinalReco);
+
+	  //For plotting==========================
+      
+	  float delphi = (r3FinalReco_globv.phi()-r3Final.phi()); //Difference between track phi and gen particle phi
+	  //std::cout<<"delphi = "<<delphi<<std::endl;
+
+	  float RPhi = r3FinalReco_globv.perp() * delphi;
+	  gentrk_eta_RPhi_p->Fill(CurrentParticle.eta(),RPhi);
+
+	  for(int i=1; i<=gentrk_eta_RPhi_p->GetNbinsX(); ++i) {
+	    gentrk_rms_RPhi->SetBinContent(i, gentrk_eta_RPhi_p->GetBinError(i)); 
+	  }
+	}
+      }
+    }
+    //  End debugging/plotting==================================
+    ///////////////////////////////////////////////////
+    
+    // std::cout<<"Segment info: "<<std::endl;
+    // std::cout<<" size = "<<OurSegments->size()<<std::endl;
+    // for (auto thisSegment = OurSegments->begin(); thisSegment != OurSegments->end(); 
+    // 	   ++thisSegment){
+    //   std::cout<<"On a Segment"<<std::endl;
+    //   ME0DetId id = thisSegment->me0DetId();
+    //   std::cout<<"ME0DetId =  "<<id<<std::endl;
+    //   auto roll = me0Geom->etaPartition(id); 
+	
+    //   std::cout <<"Local Segment Position = "<<  thisSegment->localPosition()<<std::endl;
+    //   std::cout <<"Local Segment Direction = "<<  thisSegment->localDirection()<<std::endl;
+	
+    //   //GlobalPoint thisPosition(roll->toGlobal(thisSegment->localPosition()));
+    // 	std::cout<<"Am I here"<<std::endl;
+    // 	//GlobalVector thisDirection(thisSegment->localDirection().x(),thisSegment->localDirection().y(),thisSegment->localDirection().z());
+    // 	std::cout<<"Am I here"<<std::endl;
+    // 	//The same goes for the error
+    // 	AlgebraicMatrix thisCov(4,4,0);   
+    // 	std::cout<<"Am I here"<<std::endl;
+    // 	//std::cout<<"    Position = "<<thisPosition<<std::endl;
+    // 	std::cout<<"    Position = "<<roll->toGlobal(thisSegment->localPosition())<<std::endl;
+    // 	std::cout<<"    Local PosErr = "<<thisSegment->localPositionError()<<std::endl;
+    // 	std::cout<<"    Direction = "<<roll->toGlobal(thisSegment->localDirection())<<std::endl;
+    // 	std::cout<<"    Local DirErr = "<<thisSegment->localDirectionError()<<std::endl;
+    // 	std::cout<<"-------------------------------------"<<std::endl;
+    // 	for (int i = 1; i <=4; i++){
+    // 	  for (int j = 1; j <=4; j++){
+    // 	    thisCov(i,j) = thisSegment->parametersError()(i,j);
+    // 	    std::cout<<"| "<<thisCov(i,j)<<" ";
+    // 	  }
+    // 	  std::cout<<"|"<<std::endl;
+    // 	std::cout<<"-------------------------------------"<<std::endl;
+    // 	}
+    // }
+    //=====================================
+
+    int TrackNumber = 0;
+    std::vector<int> TkMuonNumbers, TkIndex, TkToKeep;
+    std::vector<GlobalVector>FinalTrackPosition;
+    //std::cout<<"generalTracks = "<<generalTracks->size()<<std::endl;
+
+
+    for (std::vector<Track>::const_iterator thisTrack = generalTracks->begin();
+	 thisTrack != generalTracks->end(); ++thisTrack,++TrackNumber){
+      //Initializing our plane
+      //std::cout<<"========================On track "<<TrackNumber<<std::endl;
+
+      //Remove later
+      if (fabs(thisTrack->eta()) < 1.8) continue;
+      //if (fabs(thisTrack->pt()) < 0.6) continue;
+
+
+      float zSign  = thisTrack->pz()/fabs(thisTrack->pz());
+
+      //float zValue = 560. * zSign;
+      float zValue = 526.75 * zSign;
+      Plane *plane = new Plane(Surface::PositionType(0,0,zValue),Surface::RotationType());
+      //Getting the initial variables for propagation
+      int chargeReco = thisTrack->charge(); 
+      GlobalVector p3reco, r3reco;
+
+      p3reco = GlobalVector(thisTrack->outerPx(), thisTrack->outerPy(), thisTrack->outerPz());
+      r3reco = GlobalVector(thisTrack->outerX(), thisTrack->outerY(), thisTrack->outerZ());
+
+      AlgebraicSymMatrix66 covReco;
+      //This is to fill the cov matrix correctly
+      AlgebraicSymMatrix55 covReco_curv;
+      covReco_curv = thisTrack->outerStateCovariance();
+      FreeTrajectoryState initrecostate = getFTS(p3reco, r3reco, chargeReco, covReco_curv, &*bField);
+      getFromFTS(initrecostate, p3reco, r3reco, chargeReco, covReco);
+
+      //Now we propagate and get the propagated variables from the propagated state
+      SteppingHelixStateInfo startrecostate(initrecostate);
+      SteppingHelixStateInfo lastrecostate;
+
+      const SteppingHelixPropagator* ThisshProp = 
+	dynamic_cast<const SteppingHelixPropagator*>(&*shProp);
+	
+      lastrecostate = ThisshProp->propagate(startrecostate, *plane);
+	
+      FreeTrajectoryState finalrecostate;
+      lastrecostate.getFreeState(finalrecostate);
+
+      AlgebraicSymMatrix66 covFinalReco;
+      GlobalVector p3FinalReco_glob, r3FinalReco_globv;
+      getFromFTS(finalrecostate, p3FinalReco_glob, r3FinalReco_globv, chargeReco, covFinalReco);
+      FinalTrackPosition.push_back(r3FinalReco_globv);
+
+      //For plotting==========================
+      
+
+      // Double_t rho_track = r3FinalReco_globv.perp();
+      // Double_t dphidx_track = -r3FinalReco_globv.y()/(rho_track*rho_track);
+      // Double_t dphidy_track = r3FinalReco_globv.x()/(rho_track*rho_track);
+
+      // Double_t sigmaphi_track = sqrt( dphidx_track*dphidx_track*covFinalReco(0,0)+
+      // 				dphidy_track*dphidy_track*covFinalReco(1,1)+
+      //  				dphidx_track*dphidy_track*2*covFinalReco(0,1) );
+
+      // float FakeSegmentRPhi = thisSegment
+
+      // float reccov_RPhi = rho_track*sigmaphi_track;
+      // recocov_eta_RPhi_p->Fill(thisTrack->eta(),reccov_RPhi);
+
+      // for(int i=1; i<=recocov_eta_RPhi_p->GetNbinsX(); ++i) {
+      // 	reccov_rms_RPhi->SetBinContent(i, recocov_eta_RPhi_p->GetBinContent(i)); 
+      // }
+
+      //End plotting======================================
+
+      //To transform the global propagated track to local coordinates
+      int SegmentNumber = 0;
+      // for (std::vector<ME0Segment>::const_iterator thisSegment = OurSegments->begin();
+      // 	   thisSegment != OurSegments->end(); ++thisSegment,++SegmentNumber){
+      //std::cout<<"OurSegments = "<<OurSegments->size()<<std::endl;
+
+      //std::cout <<"Local Track Position = " << r3FinalReco.x()<<", "<<r3FinalReco.y()<<", "<<r3FinalReco.z()<<std::endl;
+
+      //std::cout <<"Global Track Direction = " << thisTrack->outerPx()/thisTrack->outerP()<<", "<<thisTrack->outerPy()/thisTrack->outerP()<<", "<<thisTrack->outerPz()/thisTrack->outerP()<<std::endl;
+
+
+      for (auto thisSegment = OurSegments->begin(); thisSegment != OurSegments->end(); 
+	   ++thisSegment,++SegmentNumber){
+
+
+	//std::cout<<"On Segment "<<SegmentNumber<<std::endl;
+	ME0DetId id = thisSegment->me0DetId();
+	//std::cout<<"ME0DetId =  "<<id<<std::endl;
+	auto roll = me0Geom->etaPartition(id); 
+
+
+	if ( zSign * roll->toGlobal(thisSegment->localPosition()).z() < 0 ) continue;
+
+	GlobalPoint r3FinalReco_glob(r3FinalReco_globv.x(),r3FinalReco_globv.y(),r3FinalReco_globv.z());
+	LocalPoint r3FinalReco = roll->toLocal(r3FinalReco_glob);
+	LocalVector p3FinalReco=roll->toLocal(p3FinalReco_glob);
+
+	
+	//std::cout <<"Global Segment Global Position = "<<  roll->toGlobal(thisSegment->localPosition())<<std::endl;
+	//std::cout <<"Global Segment Global phi = "<< roll->toGlobal(thisSegment->localPosition()).phi()<<std::endl;
+	//std::cout <<"Global Segment Local Position = "<<  thisSegment->localPosition()<<std::endl;
+	//double Mag = sqrt(roll->toGlobal(thisSegment->localPosition()).x()*roll->toGlobal(thisSegment->localPosition()).x()+	roll->toGlobal(thisSegment->localPosition().y())*roll->toGlobal(thisSegment->localPosition().y())+	roll->toGlobal(thisSegment->localPosition()).z()*roll->toGlobal(thisSegment->localPosition()).z());
+	//std::cout <<"Global Segment unit vector = "<< roll->toGlobal(thisSegment->localPosition()).x()/Mag<<", "<<roll->toGlobal(thisSegment->localPosition()).y()/Mag<<", "<<roll->toGlobal(thisSegment->localPosition()).z()/Mag <<std::endl;
+
+	
+	//GlobalPoint thisPosition(roll->toGlobal(thisSegment->localPosition()));
+	LocalPoint thisPosition(thisSegment->localPosition());
+	LocalVector thisDirection(thisSegment->localDirection().x(),thisSegment->localDirection().y(),thisSegment->localDirection().z());  //FIXME
+	//The same goes for the error
+	AlgebraicMatrix thisCov(4,4,0);   
+
+	// std::cout<<"    Position = "<<roll->toGlobal(thisSegment->localPosition())<<std::endl;
+	// std::cout<<"    Local PosErr = "<<thisSegment->localPositionError()<<std::endl;
+	// std::cout<<"    Direction = "<<roll->toGlobal(thisSegment->localDirection())<<std::endl;
+	// std::cout<<"    Local DirErr = "<<thisSegment->localDirectionError()<<std::endl;
+	// std::cout<<"-------------------------------------"<<std::endl;
+	for (int i = 1; i <=4; i++){
+	  for (int j = 1; j <=4; j++){
+	    thisCov(i,j) = thisSegment->parametersError()(i,j);
+	    //std::cout<<"| "<<thisCov(i,j)<<" ";
+	  }
+	 //  std::cout<<"|"<<std::endl;
+	// std::cout<<"-------------------------------------"<<std::endl;
+	}
+
+	/////////////////////////////////////////////////////////////////////////////////////////
+
+	// std::cout<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"<<std::endl;
+	// for (auto thisSegment = TestSegments->begin(); thisSegment != TestSegments->end(); 
+	//    ++thisSegment){
+	// //std::cout<<"On Segment "<<SegmentNumber<<std::endl;
+	// CSCDetId id = thisSegment->cscDetId();
+	// //std::cout<<"ME0DetId =  "<<id<<std::endl;
+	// auto roll = me0Geom->etaPartition(id); 
+	
+	// // std::cout <<"Global Segment Position = "<<  roll->toGlobal(thisSegment->localPosition())<<std::endl;
+	// // std::cout <<"Global Segment Direction = "<<  roll->toGlobal(thisSegment->localDirection())<<std::endl;
+	
+	// GlobalPoint thisPosition(roll->toGlobal(thisSegment->localPosition()));
+	// GlobalVector thisDirection(thisSegment->localDirection().x(),thisSegment->localDirection().y(),thisSegment->localDirection().z());
+	// //The same goes for the error
+	// AlgebraicMatrix thisCov(4,4,0);   
+
+	// std::cout<<"    Position = "<<roll->toGlobal(thisSegment->localPosition())<<std::endl;
+	// std::cout<<"    Local PosErr = "<<thisSegment->localPositionError()<<std::endl;
+	// std::cout<<"    Direction = "<<roll->toGlobal(thisSegment->localDirection())<<std::endl;
+	// std::cout<<"    Local DirErr = "<<thisSegment->localDirectionError()<<std::endl;
+	// std::cout<<"-------------------------------------"<<std::endl;
+	// for (int i = 1; i <=4; i++){
+	//   for (int j = 1; j <=4; j++){
+	//     thisCov(i,j) = thisSegment->parametersError()(i,j);
+	//     std::cout<<"| "<<thisCov(i,j)<<" ";
+	//   }
+	//   std::cout<<"|"<<std::endl;
+	// std::cout<<"-------------------------------------"<<std::endl;
+	// }
+	// }
+	/////////////////////////////////////////////////////////////////////////////////////////
+	//Computing the sigma for the track
+	// Double_t rho_track = r3FinalReco.perp();
+	// Double_t phi_track = r3FinalReco.phi();
+
+	// //std::cout<<r3FinalReco.eta()<<", "<<thisTrack->eta()<<std::endl;
+	// Double_t drhodx_track = r3FinalReco.x()/rho_track;
+	// Double_t drhody_track = r3FinalReco.y()/rho_track;
+	// Double_t dphidx_track = -r3FinalReco.y()/(rho_track*rho_track);
+	// Double_t dphidy_track = r3FinalReco.x()/(rho_track*rho_track);
+      
+	// Double_t sigmarho_track = sqrt( drhodx_track*drhodx_track*covFinalReco(0,0)+
+	// 				drhody_track*drhody_track*covFinalReco(1,1)+
+	// 				drhodx_track*drhody_track*2*covFinalReco(0,1) );
+      
+	// Double_t sigmaphi_track = sqrt( dphidx_track*dphidx_track*covFinalReco(0,0)+
+	// 				dphidy_track*dphidy_track*covFinalReco(1,1)+
+	// 				dphidx_track*dphidy_track*2*covFinalReco(0,1) );
+
+	// //Computing the sigma for the hit
+	// Double_t rho_hit = thisPosition.perp();
+	// Double_t phi_hit = thisPosition.phi();
+
+	// Double_t drhodx_hit = thisPosition.x()/rho_hit;
+	// Double_t drhody_hit = thisPosition.y()/rho_hit;
+	// Double_t dphidx_hit = -thisPosition.y()/(rho_hit*rho_hit);
+	// Double_t dphidy_hit = thisPosition.x()/(rho_hit*rho_hit);
+      
+	// Double_t sigmarho_hit = sqrt( drhodx_hit*drhodx_hit*thisCov(3,3)+
+	// 			      drhody_hit*drhody_hit*thisCov(4,4)+
+	// 			      drhodx_hit*drhody_hit*2*thisCov(3,4) );
+	
+	// std::cout<<"   Sigmas used:"<<std::endl;
+	// std::cout<<thisCov(3,3)<<", "<<thisCov(4,4)<<", "<<thisCov(3,4)<<std::endl;
+      
+	// Double_t sigmaphi_hit = sqrt( dphidx_hit*dphidx_hit*thisCov(3,3)+
+	// 			      dphidy_hit*dphidy_hit*thisCov(4,4)+
+	// 			      dphidx_hit*dphidy_hit*2*thisCov(3,4) );
+
+	//Adding the sigmas
+	// Double_t sigmarho = sqrt(sigmarho_track*sigmarho_track + sigmarho_hit*sigmarho_hit);
+	// Double_t sigmaphi = sqrt(sigmaphi_track*sigmaphi_track + sigmaphi_hit*sigmaphi_hit);
+
+	//Double_t sigmax_track = 
+
+
+	// std::cout<<"   Sigmas used:"<<std::endl;
+	// std::cout<<thisCov(3,3)<<", "<<thisCov(4,4)<<", "<<thisCov(3,4)<<std::endl;
+	// std::cout<<"   Sigmas that should be used:"<<std::endl;
+	// std::cout<<thisSegment->localPositionError().xx()<<", "<<thisSegment->localPositionError().yy()<<", "<<thisSegment->localPositionError().xy()<<std::endl;
+
+	// std::cout<<"   Track Sigmas used:"<<std::endl;
+	// std::cout<<covFinalReco(0,0)<<", "<<covFinalReco(1,1)<<std::endl;
+      
+
+	// //For computing the direction errors
+	// Double_t TrackPropDXDZ2 = covFinalReco(3,3)/pow(p3FinalReco.z(),2) 
+	//   + ( covFinalReco(5,5) * pow(p3FinalReco.x(),2) )/pow(p3FinalReco.z(),4) 
+	//   + ( 2. * covFinalReco(3,5) * (-1.) * p3FinalReco.x() )/pow(p3FinalReco.z(),3);
+
+	// Double_t TrackPropDYDZ2 = covFinalReco(4,4)/pow(p3FinalReco.z(),2) 
+	//   + ( covFinalReco(5,5) * pow(p3FinalReco.y(),2) )/pow(p3FinalReco.z(),4) 
+	//   + ( 2. * covFinalReco(4,5) * (-1.) * p3FinalReco.y() )/pow(p3FinalReco.z(),3);
+
+	// Double_t sigmaDir_dxdz = sqrt(TrackPropDXDZ2+thisCov(1,1));
+	// Double_t sigmaDir_dydz = sqrt(TrackPropDYDZ2+thisCov(2,2));
+
+	// SigmaDXDZ->Fill(sigmaDir_dxdz);
+	// SigmaDYDZ->Fill(sigmaDir_dydz);
+
+	//PullDXDZ->Fill(() / sigmaDir_dxdz);
+	//PullDYDZ->Fill(() / sigmaDir_dydz);
+
+
+
+	//Only taking the diagonal terms
+
+	LocalTrajectoryParameters ltp(r3FinalReco,p3FinalReco,chargeReco);
+	JacobianCartesianToLocal jctl(roll->surface(),ltp);
+	AlgebraicMatrix56 jacobGlbToLoc = jctl.jacobian(); 
+
+	AlgebraicMatrix55 Ctmp =  (jacobGlbToLoc * covFinalReco) * ROOT::Math::Transpose(jacobGlbToLoc); 
+	AlgebraicSymMatrix55 C;  // I couldn't find any other way, so I resort to the brute force
+	for(int i=0; i<5; ++i) {
+	  for(int j=0; j<5; ++j) {
+	    C[i][j] = Ctmp[i][j]; 
+
+	  }
+	}  
+
+
+	// Double_t sigmax = sqrt(covFinalReco(0,0)+thisCov(3,3));      
+	// Double_t sigmay = sqrt(covFinalReco(1,1)+thisCov(4,4));
+
+	Double_t sigmax = sqrt(C[3][3]+thisSegment->localPositionError().xx() );      
+	Double_t sigmay = sqrt(C[4][4]+thisSegment->localPositionError().yy() );
+
+	//SigmaX->Fill(sigmax);
+	//SigmaY->Fill(sigmay);
+
+
+	// SigmaX_p->Fill(1/cosh(thisPosition.eta()),sigmax);
+	// SigmaY_p->Fill(1/cosh(thisPosition.eta()),sigmay);
+	// SigmaX_p->Fill(thisPosition.eta(),sigmax);
+	// SigmaY_p->Fill(thisPosition.eta(),sigmay);
+
+	//Checking if there is a match in rho and in phi, assuming they are pointing in the same direction
+
+	// std::cout<<"rho_hit = "<<rho_hit<<std::endl;
+	// std::cout<<"rho_track = "<<rho_track<<std::endl;
+	// std::cout<<"phi_hit = "<<phi_hit<<std::endl;
+	// std::cout<<"phi_track = "<<phi_track<<std::endl;
+
+	//bool R_MatchFound = false, Phi_MatchFound = false;
+	bool X_MatchFound = false, Y_MatchFound = false;
+	//std::cout<<zSign<<", "<<thisPosition.z()<<std::endl;
+	//XDiff_h->Fill(thisPosition.x()-r3FinalReco.x());
+	//YDiff_h->Fill(thisPosition.y()-r3FinalReco.y());
+	 std::cout<<"LocalTestYReco = "<<r3FinalReco.y()<<std::endl;
+	 
+	 
+	 
+	 //For plotting======================
+	 std::cout<<"Starting here"<<std::endl;
+	 GlobalPoint ThisGlobalSegment = roll->toGlobal(thisPosition);
+	 //float delphi = reco::deltaPhi(r3FinalReco_glob,ThisGlobalSegment);
+	 float delphi = (r3FinalReco_glob.phi()-ThisGlobalSegment.phi());
+	 std::cout<<"delphi = "<<delphi<<std::endl;
+
+	 float recseg_RPhi = r3FinalReco_glob.perp() * delphi;
+
+	 recseg_eta_RPhi_p->Fill(thisTrack->eta(),recseg_RPhi);
+
+	 for(int i=1; i<=recseg_eta_RPhi_p->GetNbinsX(); ++i) {
+	   recseg_rms_RPhi->SetBinContent(i, recseg_eta_RPhi_p->GetBinError(i)); 
+	 }
+
+
+	 Double_t rho_track = r3FinalReco_globv.perp();
+	 Double_t dphidx_track = -r3FinalReco_globv.y()/(rho_track*rho_track);
+	 Double_t dphidy_track = r3FinalReco_globv.x()/(rho_track*rho_track);
+	 
+	 Double_t sigmaphi_track = sqrt( dphidx_track*dphidx_track*covFinalReco(0,0)+
+					 dphidy_track*dphidy_track*covFinalReco(1,1)+
+					 dphidx_track*dphidy_track*2*covFinalReco(0,1) );
+	 
+	 //lfloat FakeSegmentRPhi = thisSegment->localPosition().x();
+	   
+	 float reccov_RPhi = rho_track*sigmaphi_track;
+
+	 
+	 //recocov_eta_RPhi_p->Fill(thisTrack->eta(),sqrt(pow(FakeSegmentRPhi,2)+pow(reccov_RPhi,2)));
+	 recocov_eta_RPhi_p->Fill(thisTrack->eta(),reccov_RPhi);
+	 
+	 for(int i=1; i<=recocov_eta_RPhi_p->GetNbinsX(); ++i) {
+	   reccov_rms_RPhi->SetBinContent(i, recocov_eta_RPhi_p->GetBinContent(i)); 
+	 }
+
+	 //End plotting========================
+
+	 //roll->toGlobal(thisPosition).phi()
+	// std::cout<<r3FinalReco_glob<<std::endl;
+	// std::cout<<roll->toGlobal(thisPosition)<<std::endl;
+	// std::cout<<roll->toLocal(r3FinalReco_glob)<<std::endl;
+	// std::cout<<thisPosition<<std::endl;
+
+	// std::cout<<"DirectLocalTestYReco = "<<roll->toLocal(r3FinalReco_glob).y()<<std::endl;
+	// std::cout<<"LocalTestYthisPos = "<<thisPosition.y()<<std::endl;
+
+	// std::cout<<"LocalTestXReco = "<<r3FinalReco.x()<<std::endl;
+	// std::cout<<"LocalTestXthisPos = "<<thisPosition.x()<<std::endl;
+
+	// std::cout<<"LocalTestZReco = "<<r3FinalReco.z()<<std::endl;
+	// std::cout<<"LocalTestZthisPos = "<<thisPosition.z()<<std::endl;
+
+	//XPull_h->Fill((thisPosition.x()-r3FinalReco.x())/sigmax);
+	//YPull_h->Fill((thisPosition.y()-r3FinalReco.y())/sigmay);
+
+
+	// if ( (fabs(thisPosition.x()-r3FinalReco.x()) < (3.0 * sigmax)) || (fabs(thisPosition.x()-r3FinalReco.x()) < 2.0 )  ) X_MatchFound = true;
+	// if ( (fabs(thisPosition.y()-r3FinalReco.y()) < (3.0 * sigmay)) || (fabs(thisPosition.y()-r3FinalReco.y()) < 2.0 )  ) Y_MatchFound = true;
+
+	if ( (fabs(thisPosition.x()-r3FinalReco.x()) < (3.0 * sigmax))  ) X_MatchFound = true;
+	if ( (fabs(thisPosition.y()-r3FinalReco.y()) < (3.0 * sigmay))  ) Y_MatchFound = true;
+
+	// if (!X_MatchFound) std::cout<<"X Match Failed"<<std::endl;
+	// if (!Y_MatchFound) std::cout<<"Y Match Failed"<<std::endl;
+	// if ((!X_MatchFound) && (!Y_MatchFound)) std::cout<<"Both Match Failed"<<std::endl;
+	
+	//	std::cout<<fabs(rho_hit-rho_track)<<"   --->   "<<3.0 * sigmarho<<std::endl;
+	//std::cout<<fabs(phi_hit-phi_track)<<"   --->   "<<3.0 * sigmaphi<<std::endl;
+
+	if (X_MatchFound && Y_MatchFound) {
+	  //std::cout<<"FOUND ONE"<<std::endl;             
+	  TrackRef thisTrackRef(generalTracks,TrackNumber);
+	  //ME0SegmentRef thisME0SegmentRef(OurSegments,thisSegment->me0DetId());
+	  //TempStore.push_back(reco::RealME0Muon(thisTrackRef,*(&*thisSegment)));
+	  
+	  TempStore.push_back(reco::RealME0Muon(thisTrackRef,(*thisSegment),SegmentNumber));
+	  std::cout<<"Does it fail here?"<<std::endl;             
+	  TkIndex.push_back(TrackNumber);
+	}
+      }
+    }
+
+    for (unsigned int i = 0; i < TkIndex.size(); ++i){     //Now we construct a vector of unique TrackNumbers of tracks that have been stored
+      bool AlreadyStoredInTkMuonNumbers = false;
+      for (unsigned int j = 0; j < TkMuonNumbers.size(); ++j){
+	if (TkMuonNumbers[j]==TkIndex[i]) AlreadyStoredInTkMuonNumbers = true;
+      }
+      if (!AlreadyStoredInTkMuonNumbers) TkMuonNumbers.push_back(TkIndex[i]);
+    }
+
+    for (unsigned int i = 0; i < TkMuonNumbers.size(); ++i){            //Now we loop over each TrackNumber that has been stored
+      int ReferenceMuonNumber = TkMuonNumbers[i];          // The muon number of the track, starts at 0 and increments
+      double RefDelR = 99999.9, ComparisonIndex = 0;
+      int WhichTrackToKeep=-1;
+      for (std::vector<RealME0Muon>::const_iterator thisMuon = TempStore.begin();    //Now we have the second nested loop, over the RealME0Muons
+	   thisMuon != TempStore.end(); ++thisMuon, ++ComparisonIndex){
+	
+	int thisMuonNumber = TkIndex[ComparisonIndex];    //The track number of the muon we are currently looking at
+	if (thisMuonNumber == ReferenceMuonNumber){        //This means we're looking at the same track in the ME0Muon and TkMuons
+	  std::cout<<"Starting loop "<<std::endl;
+	  ME0Segment Seg = thisMuon->me0segment();
+	  ME0DetId id = Seg.me0DetId();
+	  std::cout<<"ME0DetId =  "<<id<<std::endl;
+	  auto roll = me0Geom->etaPartition(id); 
+
+	  TrackRef TkRef = thisMuon->innerTrack();
+	  //Here LocalPoint is used, although the local frame and global frame coincide, hence all calculations are made in global coordinates
+	  //  NOTE: Correct this when making the change to "real" ME0Segments, since these will be in real local coordinates
+
+	  //LocalPoint SegPos(Seg.localPosition().x(),Seg.localPosition().y(),Seg.localPosition().z());
+	  GlobalPoint SegPos(roll->toGlobal(Seg.localPosition()));
+
+	  //LocalPoint TkPos(TkRef->vx(),TkRef->vy(),TkRef->vz());
+	  //LocalPoint TkPos(FinalTrackPosition[thisMuonNumber].x(),FinalTrackPosition[thisMuonNumber].y(),FinalTrackPosition[thisMuonNumber].z());	  
+	  GlobalPoint TkPos(FinalTrackPosition[thisMuonNumber].x(),FinalTrackPosition[thisMuonNumber].y(),FinalTrackPosition[thisMuonNumber].z());
+	  double delR = reco::deltaR(SegPos,TkPos);
+
+	  std::cout<<"delR = "<<delR<<std::endl;
+
+	  if (delR < RefDelR) {
+	    WhichTrackToKeep = ComparisonIndex;  //Storing a list of the vector indices of tracks to keep
+	                                         //Note: These are not the same as the "Track Numbers"
+	    RefDelR=delR;
+	  }
+	  std::cout<<"RefdelR = "<<delR<<std::endl;
+	}
+      }
+      if (WhichTrackToKeep != -1) TkToKeep.push_back(WhichTrackToKeep);
+    }
+
+    std::cout<<"     Made "<<TkToKeep.size()<<" ME0Muons"<<std::endl;
+    for (unsigned int i = 0; i < TkToKeep.size(); ++i){
+      int thisKeepIndex = TkToKeep[i];
+
+      oc->push_back(TempStore[thisKeepIndex]);    //Filling the collection
+
+
+    }
+  	
+    // put collection in event
+    std::cout<<"Is it fail here?"<<std::endl;             
+    ev.put(oc);
+    std::cout<<"What about here?"<<std::endl;             
+}
+
+FreeTrajectoryState
+ME0SegmentMatcher::getFTS(const GlobalVector& p3, const GlobalVector& r3, 
+			   int charge, const AlgebraicSymMatrix55& cov,
+			   const MagneticField* field){
+
+  GlobalVector p3GV(p3.x(), p3.y(), p3.z());
+  GlobalPoint r3GP(r3.x(), r3.y(), r3.z());
+  GlobalTrajectoryParameters tPars(r3GP, p3GV, charge, field);
+
+  CurvilinearTrajectoryError tCov(cov);
+  
+  return cov.kRows == 5 ? FreeTrajectoryState(tPars, tCov) : FreeTrajectoryState(tPars) ;
+}
+
+FreeTrajectoryState
+ME0SegmentMatcher::getFTS(const GlobalVector& p3, const GlobalVector& r3, 
+			   int charge, const AlgebraicSymMatrix66& cov,
+			   const MagneticField* field){
+
+  GlobalVector p3GV(p3.x(), p3.y(), p3.z());
+  GlobalPoint r3GP(r3.x(), r3.y(), r3.z());
+  GlobalTrajectoryParameters tPars(r3GP, p3GV, charge, field);
+
+  CartesianTrajectoryError tCov(cov);
+  
+  return cov.kRows == 6 ? FreeTrajectoryState(tPars, tCov) : FreeTrajectoryState(tPars) ;
+}
+
+void ME0SegmentMatcher::getFromFTS(const FreeTrajectoryState& fts,
+				    GlobalVector& p3, GlobalVector& r3, 
+				    int& charge, AlgebraicSymMatrix66& cov){
+  GlobalVector p3GV = fts.momentum();
+  GlobalPoint r3GP = fts.position();
+
+  GlobalVector p3T(p3GV.x(), p3GV.y(), p3GV.z());
+  GlobalVector r3T(r3GP.x(), r3GP.y(), r3GP.z());
+  p3 = p3T;
+  r3 = r3T;  //Yikes, was setting this to p3T instead of r3T!?!
+  // p3.set(p3GV.x(), p3GV.y(), p3GV.z());
+  // r3.set(r3GP.x(), r3GP.y(), r3GP.z());
+  
+  charge = fts.charge();
+  cov = fts.hasError() ? fts.cartesianError().matrix() : AlgebraicSymMatrix66();
+
+}
+
+
+void ME0SegmentMatcher::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup)
+{
+  //std::cout<<"Getting record"<<std::endl;
+  iSetup.get<MuonGeometryRecord>().get(me0Geom);
+  //std::cout<<" record"<<std::endl;
+
+  //For debugging
+  // SigmaX = new TH1F("SigmaX"      , "SigmaX"   , 50, 0.0, 4.0 );
+  // SigmaY = new TH1F("SigmaY"      , "SigmaY"   , 50, 0.0, 4.0 );
+
+  // SigmaDXDZ = new TH1F("SigmaDXDZ"      , "Sigma dx/dz"   , 50, 0.0, 0.25 );
+  // SigmaDYDZ = new TH1F("SigmaDYDZ"      , "Sigma dy/dz"   , 50, 0.0, 0.25 );
+
+  // DelR = new TH1F("DelR",    "Delta R between generalTracks and genTracks", 40, 0., 0.02);
+  // //DelR_Seg = new TH1F("DelR",    "Delta R between generalTracks and ME0Segments", 40, 0., 0.02);
+  // XDiff_h = new TH1F("XDiff_h", "X Diff", 100, -4.0, 4.0 );
+  // YDiff_h = new TH1F("YDiff_h", "Y Diff", 100, 4.0, 4.0 );
+  // XPull_h = new TH1F("XPull_h", "X Pull", 100, -4.0, 4.0 );
+  // YPull_h = new TH1F("YPull_h", "Y Pull", 40, -4.0, 4.0 );
+  // SigmaX_p = new TProfile("SigmaX_p"      , "SigmaX"   , 40,2.4,4.0, 0.0, 4.0 );
+  // SigmaY_p = new TProfile("SigmaY_p"      , "SigmaY"   , 40,2.4,4.0, 0.0, 4.0 );
+  
+  reccov_rms_RPhi = new TH1F( "reccov_rms_RPhi", "RMS", 6, 2.4, 3.6 ); // 8, 2.4, 4.0 );
+  recocov_eta_RPhi_p = new TProfile("recocov_eta_RPhi_p" , "|#sigmar#phi | vs |#eta|, z = 560 cm", 6, 2.4, 3.6, 0., 50.,"s");
+
+  recseg_rms_RPhi = new TH1F( "recseg_rms_RPhi", "RMS", 6, 2.4, 3.6 ); // 8, 2.4, 4.0 );
+  recseg_eta_RPhi_p = new TProfile("recseg_eta_RPhi_p" , "|#sigmar#phi | vs |#eta|, z = 560 cm", 6, 2.4, 3.6, 0., 50.,"s");
+
+  gentrk_rms_RPhi = new TH1F( "gentrk_rms_RPhi", "RMS", 6, 2.4, 3.6 ); // 8, 2.4, 4.0 );
+  gentrk_eta_RPhi_p = new TProfile("gentrk_eta_RPhi_p" , "|#sigmar#phi | vs |#eta|, z = 560 cm", 6, 2.4, 3.6, 0., 50.,"s");
+
+  genseg_rms_RPhi = new TH1F( "genseg_rms_RPhi", "RMS", 6, 2.4, 3.6 ); // 8, 2.4, 4.0 );
+  genseg_eta_RPhi_p = new TProfile("genseg_eta_RPhi_p" , "|#sigmar#phi | vs |#eta|, z = 560 cm", 6, 2.4, 3.6, 0., 50.,"s");
+
+  histoFile = new TFile("HistoFile.root", "recreate");
+}
+
+
+void ME0SegmentMatcher::endRun()
+{
+  
+}
+
+ DEFINE_FWK_MODULE(ME0SegmentMatcher);
